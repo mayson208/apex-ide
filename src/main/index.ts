@@ -1,6 +1,5 @@
 import { app, BrowserWindow, shell, ipcMain } from 'electron'
 import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerFsHandlers } from './ipc-handlers/fs'
 import { registerProcessHandlers } from './ipc-handlers/process'
 import { registerPtyHandlers } from './ipc-handlers/pty'
@@ -8,6 +7,8 @@ import { registerSessionHandlers } from './ipc-handlers/sessions'
 import { registerGitHandlers } from './ipc-handlers/git'
 import { registerSkillsHandlers } from './ipc-handlers/skills'
 import { registerTodosHandlers } from './ipc-handlers/todos'
+
+const isDev = process.env.NODE_ENV === 'development' || !!process.env['ELECTRON_RENDERER_URL']
 
 let mainWindow: BrowserWindow | null = null
 
@@ -32,9 +33,6 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show()
-    if (is.dev) {
-      mainWindow?.webContents.openDevTools({ mode: 'detach' })
-    }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -54,7 +52,7 @@ function createWindow(): void {
   ipcMain.on('window:close', () => mainWindow?.close())
   ipcMain.handle('window:is-maximized', () => mainWindow?.isMaximized() ?? false)
 
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+  if (isDev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
@@ -62,11 +60,9 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.apex-ide')
-
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-  })
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.apex-ide')
+  }
 
   // Register all IPC handlers
   registerFsHandlers()
